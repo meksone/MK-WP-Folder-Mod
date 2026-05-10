@@ -1,5 +1,10 @@
 # Changelog – MK WP Folder Mod
 
+## [0.4.4] – 2026-05-10
+### Fixed
+- S3 offload / block-editor upload-first flows: folders were not created because `save_post` runs before attachments are linked to the parent post
+- Added `wpmf_sync_attachment_to_parent_folder()` hooked on `add_attachment` and `attachment_updated`; resolves the parent post's folder (creating it if needed) and assigns the term — skips if attachment already in the correct folder
+
 ## [0.4.3] – 2026-05-10
 ### Added
 - Unassigned media collector: `wpmf_assign_unassigned_media()` batch-moves all attachments without a `wpmf-category` term into a `Non assegnati` root folder (500-item batches)

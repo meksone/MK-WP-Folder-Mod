@@ -1,7 +1,7 @@
 <?php
 /**
  * PLUGIN NAME: WP Media Folder - Post Folder Sync, Logger & Bulk Cleaner
- * VERSION: 0.4.3 – Media non assegnati a cartella
+ * VERSION: 0.4.4 – S3 offload attachment sync
  */
 
 // ─────────────────────────────────────────────
@@ -614,7 +614,47 @@ add_action( 'save_post', function ( int $post_id, WP_Post $post, bool $_update )
 }, 20, 3 );
 
 // ─────────────────────────────────────────────
-// 12. CESTINO E RIPRISTINO
+// 12. ATTACHMENT HOOK (S3 / upload-first flows)
+// ─────────────────────────────────────────────
+// Fires when an attachment is added or its post_parent changes (e.g. block
+// editor sets post_parent after upload, S3 offload re-saves the attachment).
+function wpmf_sync_attachment_to_parent_folder( int $att_id ): void {
+    $attachment = get_post( $att_id );
+    if ( ! $attachment || $attachment->post_type !== 'attachment' ) return;
+    $parent_id = (int) $attachment->post_parent;
+    if ( ! $parent_id ) return;
+    $parent = get_post( $parent_id );
+    if ( ! $parent ) return;
+    $post_type = $parent->post_type;
+    $is_post   = ( $post_type === 'post' );
+    $is_cpt    = ( ! $is_post && $post_type !== 'page' && wpmf_auto_cpt_is_enabled( $post_type ) );
+    if ( ! $is_post && ! $is_cpt ) return;
+    $folder_id = (int) get_post_meta( $parent_id, '_wpmf_automated_folder_id', true );
+    if ( ! $folder_id ) {
+        // Parent folder not yet created — trigger save_post logic indirectly.
+        $folder_name = wpmf_sanitize_folder_name( get_the_title( $parent_id ) );
+        $folder_id   = $is_post
+            ? wpmf_build_date_hierarchy( $parent->post_date, $folder_name )
+            : wpmf_build_cpt_folder( $post_type );
+        if ( $folder_id ) {
+            update_post_meta( $parent_id, '_wpmf_automated_folder_id', $folder_id );
+            wpmf_custom_logger( "🔗 {$post_type} #{$parent_id} collegato a cartella #{$folder_id} (via allegato #{$att_id})" );
+        }
+    }
+    if ( $folder_id ) {
+        $existing = wp_get_object_terms( $att_id, 'wpmf-category', [ 'fields' => 'ids' ] );
+        if ( ! is_wp_error( $existing ) && in_array( $folder_id, $existing, true ) ) return;
+        wp_set_object_terms( $att_id, $folder_id, 'wpmf-category', false );
+        wpmf_custom_logger( "📎 Allegato #{$att_id} assegnato a cartella #{$folder_id} (parent: {$post_type} #{$parent_id})" );
+    }
+}
+add_action( 'add_attachment',      'wpmf_sync_attachment_to_parent_folder' );
+add_action( 'attachment_updated',  function ( int $att_id ) {
+    wpmf_sync_attachment_to_parent_folder( $att_id );
+}, 10, 1 );
+
+// ─────────────────────────────────────────────
+// 13. CESTINO E RIPRISTINO
 // ─────────────────────────────────────────────
 add_action( 'wp_trash_post', function ( int $post_id ) {
     $post = get_post( $post_id );
