@@ -1,3 +1,4 @@
+<?php
 /**
  * PLUGIN NAME: WP Media Folder - Post Folder Sync, Logger & Bulk Cleaner
  * VERSION: 0.4.3 – Media non assegnati a cartella
@@ -578,7 +579,7 @@ function wpmf_assign_unassigned_media(): int {
 // ─────────────────────────────────────────────
 // 11. SINCRONIZZAZIONE POST & CPT → MEDIA
 // ─────────────────────────────────────────────
-add_action( 'save_post', function ( int $post_id, WP_Post $post, bool $update ) {
+add_action( 'save_post', function ( int $post_id, WP_Post $post, bool $_update ) {
     if ( wp_is_post_revision( $post_id ) ) return;
     if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
     if ( $post->post_status === 'trash' ) return;

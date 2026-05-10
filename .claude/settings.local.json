@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php -l \"c:\\\\Users\\\\meks0\\\\OneDrive - meksONE\\\\Desktop\\\\MK WP Folder Mod\\\\mk-wp-folder-mod.php\")",
+      "PowerShell(php -l \"c:\\\\Users\\\\meks0\\\\OneDrive - meksONE\\\\Desktop\\\\MK WP Folder Mod\\\\mk-wp-folder-mod.php\")"
+    ]
+  }
+}
