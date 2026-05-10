@@ -1,6 +1,6 @@
 /**
  * PLUGIN NAME: WP Media Folder - Post Folder Sync, Logger & Bulk Cleaner
- * VERSION: 4.3 – Media non assegnati a cartella
+ * VERSION: 0.4.3 – Media non assegnati a cartella
  */
 
 // ─────────────────────────────────────────────

@@ -1,0 +1,29 @@
+name: Release Plugin ZIP
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ZIP with canonical folder name
+        run: |
+          mkdir -p build/mk-wp-folder-mod
+          rsync -av \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='build' \
+            . build/mk-wp-folder-mod/
+          cd build && zip -r mk-wp-folder-mod.zip mk-wp-folder-mod/
+
+      - name: Attach ZIP to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/mk-wp-folder-mod.zip
