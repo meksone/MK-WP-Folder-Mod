@@ -3,7 +3,7 @@
  * Plugin Name: MK WP Folder Mod
  * Plugin URI:  https://github.com/meksone/mk-wp-folder-mod
  * Description: WP Media Folder automation – post folder sync, logger & bulk cleaner.
- * Version:     0.4.7
+ * Version:     0.4.8
  * Author:      Manuel Serrenti (meksONE)
  * Author URI:  https://meksone.com
  * License:     GPL-2.0+
@@ -12,7 +12,7 @@
  */
 
 define( 'WPMF_TD',      'mk-wp-folder-mod' );
-define( 'WPMF_VERSION', '0.4.7' );
+define( 'WPMF_VERSION', '0.4.8' );
 define( 'WPMF_GITHUB',  'meksone/mk-wp-folder-mod' );
 define( 'WPMF_SLUG',    'mk-wp-folder-mod/mk-wp-folder-mod.php' );
 
@@ -616,14 +616,19 @@ function wpmf_build_cpt_folder( string $post_type ): int {
 // 10. FOLDER OPERATIONS
 // ─────────────────────────────────────────────
 function wpmf_collect_protected_ids( int $term_id, string $taxonomy ): array {
-    $protected = [ $term_id ];
-    $children  = get_terms( [ 'taxonomy' => $taxonomy, 'parent' => $term_id, 'hide_empty' => false, 'fields' => 'ids' ] );
-    if ( ! empty( $children ) && ! is_wp_error( $children ) ) {
-        foreach ( $children as $child_id ) {
-            $protected = array_merge( $protected, wpmf_collect_protected_ids( (int) $child_id, $taxonomy ) );
-        }
+    global $wpdb;
+    // Iterative BFS using a single query per level — avoids N recursive DB calls.
+    $protected = [];
+    $queue     = [ $term_id ];
+    while ( ! empty( $queue ) ) {
+        $protected = array_merge( $protected, $queue );
+        $in        = implode( ',', array_map( 'intval', $queue ) );
+        $queue     = $wpdb->get_col(
+            "SELECT tt.term_id FROM {$wpdb->term_taxonomy} tt WHERE tt.taxonomy = 'wpmf-category' AND tt.parent IN ({$in})"
+        );
+        $queue = array_map( 'intval', $queue );
     }
-    return $protected;
+    return array_unique( $protected );
 }
 
 function wpmf_folder_is_empty( int $term_id ): bool {
@@ -637,28 +642,84 @@ function wpmf_folder_is_empty( int $term_id ): bool {
     return empty( $children ) || is_wp_error( $children );
 }
 
+function wpmf_get_protected_ids(): array {
+    global $wpdb;
+    $roots = $wpdb->get_col(
+        "SELECT tt.term_id FROM {$wpdb->term_taxonomy} tt JOIN {$wpdb->terms} t ON t.term_id = tt.term_id WHERE tt.taxonomy = 'wpmf-category' AND t.name LIKE '!%'"
+    );
+    if ( empty( $roots ) ) return [];
+    $protected = [];
+    foreach ( $roots as $root_id ) {
+        $protected = array_merge( $protected, wpmf_collect_protected_ids( (int) $root_id, 'wpmf-category' ) );
+    }
+    return array_unique( array_map( 'intval', $protected ) );
+}
+
+function wpmf_bulk_delete_terms( array $term_ids ): int {
+    global $wpdb;
+    if ( empty( $term_ids ) ) return 0;
+
+    // Resolve term_taxonomy_ids for all targets in one query.
+    $in       = implode( ',', $term_ids );
+    $tt_ids   = $wpdb->get_col(
+        "SELECT term_taxonomy_id FROM {$wpdb->term_taxonomy} WHERE term_id IN ({$in}) AND taxonomy = 'wpmf-category'"
+    );
+    if ( empty( $tt_ids ) ) return 0;
+    $tt_in = implode( ',', array_map( 'intval', $tt_ids ) );
+
+    // Bulk delete in dependency order: relationships → taxonomy → terms.
+    $wpdb->query( "DELETE FROM {$wpdb->term_relationships} WHERE term_taxonomy_id IN ({$tt_in})" );
+    $wpdb->query( "DELETE FROM {$wpdb->term_taxonomy}      WHERE term_taxonomy_id IN ({$tt_in})" );
+    $wpdb->query( "DELETE FROM {$wpdb->terms}              WHERE term_id           IN ({$in})" );
+
+    // Remove folder_color option entries for deleted terms.
+    if ( function_exists( 'wpmfGetOption' ) && function_exists( 'wpmfSetOption' ) ) {
+        $colors = wpmfGetOption( 'folder_color' );
+        if ( is_array( $colors ) ) {
+            foreach ( $term_ids as $tid ) unset( $colors[ $tid ] );
+            wpmfSetOption( 'folder_color', $colors );
+        }
+    }
+
+    // Single cache flush after all deletes.
+    clean_term_cache( $term_ids, 'wpmf-category' );
+    wp_cache_delete( 'all_ids', 'wpmf-category' );
+
+    return count( $term_ids );
+}
+
 function wpmf_delete_empty_folders(): int {
     $taxonomy = 'wpmf-category';
     if ( ! taxonomy_exists( $taxonomy ) ) return 0;
+
+    global $wpdb;
+    $protected_ids = wpmf_get_protected_ids();
     $total_deleted = 0;
+
+    // Iteratively delete leaf-empty folders until none remain.
+    // Each pass: find terms with no attachment relationships AND no children.
     do {
-        $all_terms = get_terms( [ 'taxonomy' => $taxonomy, 'hide_empty' => false, 'fields' => 'id=>name' ] );
-        if ( empty( $all_terms ) || is_wp_error( $all_terms ) ) break;
-        $protected_ids = [];
-        foreach ( $all_terms as $term_id => $term_name ) {
-            if ( str_starts_with( $term_name, '!' ) ) {
-                $protected_ids = array_merge( $protected_ids, wpmf_collect_protected_ids( (int) $term_id, $taxonomy ) );
-            }
-        }
-        $protected_ids = array_unique( $protected_ids );
-        $deleted_this_pass = 0;
-        foreach ( $all_terms as $term_id => $term_name ) {
-            if ( in_array( (int) $term_id, $protected_ids, true ) ) continue;
-            if ( ! wpmf_folder_is_empty( (int) $term_id ) ) continue;
-            $result = wp_delete_term( (int) $term_id, $taxonomy );
-            if ( $result && ! is_wp_error( $result ) ) { $deleted_this_pass++; $total_deleted++; }
-        }
-    } while ( $deleted_this_pass > 0 );
+        $exclude = empty( $protected_ids )
+            ? ''
+            : 'AND tt.term_id NOT IN (' . implode( ',', $protected_ids ) . ')';
+
+        $empty_ids = $wpdb->get_col(
+            "SELECT tt.term_id
+               FROM {$wpdb->term_taxonomy} tt
+              WHERE tt.taxonomy = 'wpmf-category'
+                {$exclude}
+                AND tt.count = 0
+                AND tt.term_id NOT IN (
+                    SELECT DISTINCT parent FROM {$wpdb->term_taxonomy}
+                     WHERE taxonomy = 'wpmf-category' AND parent > 0
+                )"
+        );
+
+        if ( empty( $empty_ids ) ) break;
+        $empty_ids     = array_map( 'intval', $empty_ids );
+        $total_deleted += wpmf_bulk_delete_terms( $empty_ids );
+    } while ( ! empty( $empty_ids ) );
+
     if ( $total_deleted > 0 ) wpmf_custom_logger( "🕳️ Eliminate {$total_deleted} cartelle vuote." );
     return $total_deleted;
 }
@@ -666,22 +727,22 @@ function wpmf_delete_empty_folders(): int {
 function wpmf_delete_all_folders_except_protected(): int {
     $taxonomy = 'wpmf-category';
     if ( ! taxonomy_exists( $taxonomy ) ) return 0;
-    $all_terms = get_terms( [ 'taxonomy' => $taxonomy, 'hide_empty' => false, 'fields' => 'id=>name' ] );
-    if ( empty( $all_terms ) || is_wp_error( $all_terms ) ) return 0;
-    $protected_ids = [];
-    foreach ( $all_terms as $term_id => $term_name ) {
-        if ( str_starts_with( $term_name, '!' ) ) {
-            $protected_ids = array_merge( $protected_ids, wpmf_collect_protected_ids( (int) $term_id, $taxonomy ) );
-        }
-    }
-    $protected_ids = array_unique( $protected_ids );
-    $deleted = 0;
-    foreach ( $all_terms as $term_id => $term_name ) {
-        if ( in_array( (int) $term_id, $protected_ids, true ) ) continue;
-        $result = wp_delete_term( (int) $term_id, $taxonomy );
-        if ( $result && ! is_wp_error( $result ) ) { $deleted++; }
-        elseif ( is_wp_error( $result ) ) wpmf_custom_logger( '⚠️ Errore eliminazione "' . $term_name . '": ' . $result->get_error_message() );
-    }
+
+    global $wpdb;
+    $all_ids = $wpdb->get_col(
+        "SELECT term_id FROM {$wpdb->term_taxonomy} WHERE taxonomy = 'wpmf-category'"
+    );
+    if ( empty( $all_ids ) ) return 0;
+
+    $all_ids       = array_map( 'intval', $all_ids );
+    $protected_ids = wpmf_get_protected_ids();
+    $to_delete     = empty( $protected_ids )
+        ? $all_ids
+        : array_values( array_diff( $all_ids, $protected_ids ) );
+
+    if ( empty( $to_delete ) ) return 0;
+
+    $deleted = wpmf_bulk_delete_terms( $to_delete );
     if ( $deleted > 0 ) wpmf_custom_logger( "🗑️ Reset cartelle: eliminate {$deleted} cartelle (protette con ! mantenute)." );
     return $deleted;
 }

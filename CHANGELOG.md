@@ -1,5 +1,12 @@
 # Changelog – MK WP Folder Mod
 
+## [0.4.8] – 2026-06-18
+### Changed
+- `wpmf_delete_all_folders_except_protected`: replaced per-term `wp_delete_term()` loop with single bulk SQL delete (3 queries total regardless of folder count); cache flushed once at the end
+- `wpmf_delete_empty_folders`: replaced per-term `wpmf_folder_is_empty()` calls with a single SQL query per pass to find all leaf-empty folders at once; uses same bulk delete path
+- `wpmf_collect_protected_ids`: replaced recursive function (N DB queries) with iterative BFS — one query per depth level; extracted shared `wpmf_get_protected_ids()` helper
+- New `wpmf_bulk_delete_terms()`: deletes `term_relationships`, `term_taxonomy`, `terms` rows in bulk, cleans `folder_color` option entries, flushes caches once
+
 ## [0.4.7] – 2026-06-18
 ### Added
 - Full WordPress plugin header (`Plugin Name`, `Plugin URI`, `Description`, `Author`, `License`)
