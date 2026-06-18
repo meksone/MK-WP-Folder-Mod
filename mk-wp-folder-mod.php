@@ -1,8 +1,100 @@
 <?php
 /**
- * PLUGIN NAME: WP Media Folder - Post Folder Sync, Logger & Bulk Cleaner
- * VERSION: 0.4.4 – S3 offload attachment sync
+ * Plugin Name: MK WP Folder Mod
+ * Plugin URI:  https://github.com/meksone/mk-wp-folder-mod
+ * Description: WP Media Folder automation – post folder sync, logger & bulk cleaner.
+ * Version:     0.4.7
+ * Author:      Manuel Serrenti (meksONE)
+ * Author URI:  https://meksone.com
+ * License:     GPL-2.0+
+ * Text Domain: mk-wp-folder-mod
+ * Domain Path: /languages
  */
+
+define( 'WPMF_TD',      'mk-wp-folder-mod' );
+define( 'WPMF_VERSION', '0.4.7' );
+define( 'WPMF_GITHUB',  'meksone/mk-wp-folder-mod' );
+define( 'WPMF_SLUG',    'mk-wp-folder-mod/mk-wp-folder-mod.php' );
+
+add_action( 'init', function () {
+    load_plugin_textdomain( WPMF_TD, false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
+} );
+
+// ─────────────────────────────────────────────
+// GITHUB UPDATER
+// ─────────────────────────────────────────────
+add_filter( 'pre_set_site_transient_update_plugins', function ( $transient ) {
+    if ( empty( $transient->checked ) ) return $transient;
+
+    $response = wp_remote_get(
+        'https://api.github.com/repos/' . WPMF_GITHUB . '/releases/latest',
+        [ 'headers' => [ 'Accept' => 'application/vnd.github+json', 'User-Agent' => 'WordPress/' . get_bloginfo( 'version' ) ] ]
+    );
+
+    if ( is_wp_error( $response ) || wp_remote_retrieve_response_code( $response ) !== 200 ) return $transient;
+
+    $release = json_decode( wp_remote_retrieve_body( $response ) );
+    if ( empty( $release->tag_name ) ) return $transient;
+
+    $latest = ltrim( $release->tag_name, 'v' );
+    if ( ! version_compare( $latest, WPMF_VERSION, '>' ) ) return $transient;
+
+    $zip_url = '';
+    if ( ! empty( $release->assets ) ) {
+        foreach ( $release->assets as $asset ) {
+            if ( str_ends_with( $asset->name, '.zip' ) ) {
+                $zip_url = $asset->browser_download_url;
+                break;
+            }
+        }
+    }
+    if ( ! $zip_url ) $zip_url = $release->zipball_url;
+
+    $transient->response[ WPMF_SLUG ] = (object) [
+        'slug'        => 'mk-wp-folder-mod',
+        'plugin'      => WPMF_SLUG,
+        'new_version' => $latest,
+        'url'         => 'https://github.com/' . WPMF_GITHUB,
+        'package'     => $zip_url,
+    ];
+
+    return $transient;
+} );
+
+add_filter( 'plugins_api', function ( $result, $action, $args ) {
+    if ( $action !== 'plugin_information' || ( $args->slug ?? '' ) !== 'mk-wp-folder-mod' ) return $result;
+
+    $response = wp_remote_get(
+        'https://api.github.com/repos/' . WPMF_GITHUB . '/releases/latest',
+        [ 'headers' => [ 'Accept' => 'application/vnd.github+json', 'User-Agent' => 'WordPress/' . get_bloginfo( 'version' ) ] ]
+    );
+
+    if ( is_wp_error( $response ) || wp_remote_retrieve_response_code( $response ) !== 200 ) return $result;
+
+    $release = json_decode( wp_remote_retrieve_body( $response ) );
+    if ( empty( $release->tag_name ) ) return $result;
+
+    $zip_url = '';
+    if ( ! empty( $release->assets ) ) {
+        foreach ( $release->assets as $asset ) {
+            if ( str_ends_with( $asset->name, '.zip' ) ) {
+                $zip_url = $asset->browser_download_url;
+                break;
+            }
+        }
+    }
+    if ( ! $zip_url ) $zip_url = $release->zipball_url;
+
+    return (object) [
+        'name'          => 'MK WP Folder Mod',
+        'slug'          => 'mk-wp-folder-mod',
+        'version'       => ltrim( $release->tag_name, 'v' ),
+        'author'        => '<a href="https://meksone.com">meksONE</a>',
+        'homepage'      => 'https://github.com/' . WPMF_GITHUB,
+        'download_link' => $zip_url,
+        'sections'      => [ 'description' => $release->body ?? '' ],
+    ];
+}, 10, 3 );
 
 // ─────────────────────────────────────────────
 // 1. LOGGING
@@ -19,6 +111,7 @@ function wpmf_custom_logger( string $message ): void {
 function wpmf_auto_get_settings(): array {
     $defaults = [
         'folder_name_length' => 30,
+        'post_name_folder'   => false,
         'cpt_enabled'        => [],
     ];
     $saved = get_option( 'wpmf_auto_settings', [] );
@@ -41,15 +134,21 @@ function wpmf_auto_cpt_is_enabled( string $post_type ): bool {
 // ─────────────────────────────────────────────
 add_action( 'admin_menu', function () {
     add_submenu_page(
-        'upload.php', 'WPMF Log', 'WPMF Log',
+        'upload.php',
+        __( 'WPMF Log', WPMF_TD ),
+        __( 'WPMF Log', WPMF_TD ),
         'manage_options', 'wpmf-automation-log', 'wpmf_render_log_page'
     );
     add_submenu_page(
-        'upload.php', 'WPMF Impostazioni', 'WPMF Impostazioni',
+        'upload.php',
+        __( 'WPMF Settings', WPMF_TD ),
+        __( 'WPMF Settings', WPMF_TD ),
         'manage_options', 'wpmf-auto-settings', 'wpmf_render_settings_page'
     );
     add_submenu_page(
-        'upload.php', 'WPMF Gestione Cartelle', 'WPMF Gestione Cartelle',
+        'upload.php',
+        __( 'WPMF Folder Manager', WPMF_TD ),
+        __( 'WPMF Folder Manager', WPMF_TD ),
         'manage_options', 'wpmf-folder-manager', 'wpmf_render_folder_manager_page'
     );
 } );
@@ -59,11 +158,11 @@ add_action( 'admin_menu', function () {
 // ─────────────────────────────────────────────
 function wpmf_render_log_page(): void {
     $log = get_option( 'wpmf_automation_log', [] );
-    echo '<div class="wrap"><h1>📜 Log Automazione WP Media Folder</h1>';
+    echo '<div class="wrap"><h1>📜 ' . esc_html__( 'WP Media Folder Automation Log', WPMF_TD ) . '</h1>';
     echo '<table class="wp-list-table widefat fixed striped" style="margin-top:20px;">
-            <thead><tr><th width="20%">Data/Ora</th><th>Evento</th></tr></thead><tbody>';
+            <thead><tr><th width="20%">' . esc_html__( 'Date/Time', WPMF_TD ) . '</th><th>' . esc_html__( 'Event', WPMF_TD ) . '</th></tr></thead><tbody>';
     if ( empty( $log ) ) {
-        echo '<tr><td colspan="2">Nessun evento.</td></tr>';
+        echo '<tr><td colspan="2">' . esc_html__( 'No events.', WPMF_TD ) . '</td></tr>';
     } else {
         foreach ( $log as $entry ) {
             echo '<tr><td><strong>' . esc_html( $entry['time'] ) . '</strong></td>
@@ -84,6 +183,8 @@ function wpmf_render_settings_page(): void {
         $length = isset( $_POST['folder_name_length'] ) ? (int) $_POST['folder_name_length'] : 30;
         $length = max( 5, min( 100, $length ) );
 
+        $post_name_folder = ! empty( $_POST['post_name_folder'] );
+
         $cpt_enabled = [];
         if ( ! empty( $_POST['cpt_enabled'] ) && is_array( $_POST['cpt_enabled'] ) ) {
             foreach ( $_POST['cpt_enabled'] as $cpt ) {
@@ -93,36 +194,48 @@ function wpmf_render_settings_page(): void {
 
         update_option( 'wpmf_auto_settings', [
             'folder_name_length' => $length,
+            'post_name_folder'   => $post_name_folder,
             'cpt_enabled'        => $cpt_enabled,
         ] );
 
-        echo '<div class="updated notice is-dismissible"><p>✅ Impostazioni salvate.</p></div>';
+        echo '<div class="updated notice is-dismissible"><p>✅ ' . esc_html__( 'Settings saved.', WPMF_TD ) . '</p></div>';
     }
 
     $settings = wpmf_auto_get_settings();
     $cpts     = get_post_types( [ 'public' => true, '_builtin' => false ], 'objects' );
     ?>
     <div class="wrap">
-        <h1>⚙️ Impostazioni WPMF Automazione</h1>
+        <h1>⚙️ <?php esc_html_e( 'WPMF Automation Settings', WPMF_TD ); ?></h1>
         <form method="post">
             <?php wp_nonce_field( 'wpmf_settings_action', 'wpmf_settings_nonce' ); ?>
             <table class="form-table" role="presentation">
                 <tr>
+                    <th scope="row"><?php esc_html_e( 'Post name folder', WPMF_TD ); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="post_name_folder" value="1"
+                                <?php checked( ! empty( $settings['post_name_folder'] ) ); ?> />
+                            <?php esc_html_e( 'Create a subfolder named after the post inside Year/Month', WPMF_TD ); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e( 'When disabled, media are placed directly in the month folder.', WPMF_TD ); ?></p>
+                    </td>
+                </tr>
+                <tr>
                     <th scope="row">
-                        <label for="folder_name_length">Lunghezza massima nome cartella</label>
+                        <label for="folder_name_length"><?php esc_html_e( 'Maximum folder name length', WPMF_TD ); ?></label>
                     </th>
                     <td>
                         <input type="number" id="folder_name_length" name="folder_name_length"
                             value="<?php echo esc_attr( $settings['folder_name_length'] ); ?>"
                             min="5" max="100" style="width:80px;" />
-                        <p class="description">Numero massimo di caratteri per i nomi delle cartelle (5–100). Default: 30.</p>
+                        <p class="description"><?php esc_html_e( 'Maximum characters for folder names (5–100). Default: 30.', WPMF_TD ); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row">Custom Post Type abilitati</th>
+                    <th scope="row"><?php esc_html_e( 'Enabled Custom Post Types', WPMF_TD ); ?></th>
                     <td>
                         <?php if ( empty( $cpts ) ) : ?>
-                            <em>Nessun CPT pubblico trovato.</em>
+                            <em><?php esc_html_e( 'No public CPTs found.', WPMF_TD ); ?></em>
                         <?php else : ?>
                             <?php foreach ( $cpts as $cpt ) : ?>
                                 <label style="display:block; margin-bottom:6px;">
@@ -134,8 +247,7 @@ function wpmf_render_settings_page(): void {
                                 </label>
                             <?php endforeach; ?>
                             <p class="description">
-                                I CPT selezionati avranno una cartella radice con il nome del tipo.
-                                Tutti i media associati verranno inseriti direttamente al suo interno.
+                                <?php esc_html_e( 'Selected CPTs will have a root folder named after the post type. All associated media will be placed inside it.', WPMF_TD ); ?>
                             </p>
                         <?php endif; ?>
                     </td>
@@ -143,7 +255,7 @@ function wpmf_render_settings_page(): void {
             </table>
             <p class="submit">
                 <button type="submit" name="wpmf_save_settings" value="1" class="button button-primary">
-                    💾 Salva impostazioni
+                    💾 <?php esc_html_e( 'Save settings', WPMF_TD ); ?>
                 </button>
             </p>
         </form>
@@ -160,26 +272,42 @@ function wpmf_render_folder_manager_page(): void {
     if ( isset( $_POST['wpmf_do_delete_empty'] ) &&
         check_admin_referer( 'wpmf_folder_manager_action', 'wpmf_folder_manager_nonce' ) ) {
         $deleted = wpmf_delete_empty_folders();
-        $message = "✅ Eliminate <strong>{$deleted}</strong> cartelle vuote (protette con ! mantenute).";
+        $message = sprintf(
+            /* translators: %s: number of deleted folders */
+            __( '✅ Deleted <strong>%s</strong> empty folders (folders protected with ! were kept).', WPMF_TD ),
+            $deleted
+        );
     }
 
     if ( isset( $_POST['wpmf_do_delete_all'] ) &&
         check_admin_referer( 'wpmf_folder_manager_action', 'wpmf_folder_manager_nonce' ) ) {
         $deleted = wpmf_delete_all_folders_except_protected();
-        $message = "✅ Eliminate <strong>{$deleted}</strong> cartelle non protette (protette con ! mantenute).";
+        $message = sprintf(
+            /* translators: %s: number of deleted folders */
+            __( '✅ Deleted <strong>%s</strong> unprotected folders (folders protected with ! were kept).', WPMF_TD ),
+            $deleted
+        );
     }
 
     if ( isset( $_POST['wpmf_do_fix_root'] ) &&
         check_admin_referer( 'wpmf_folder_manager_action', 'wpmf_folder_manager_nonce' ) ) {
         $result  = wpmf_fix_root_duplicates();
-        $message = "✅ Scansionati <strong>{$result['total_scanned']}</strong> allegati. "
-                 . "Corretti <strong>{$result['fixed_duplicates']}</strong> con assegnazioni multiple.";
+        $message = sprintf(
+            /* translators: 1: total scanned, 2: fixed duplicates */
+            __( '✅ Scanned <strong>%1$s</strong> attachments. Fixed <strong>%2$s</strong> with multiple assignments.', WPMF_TD ),
+            $result['total_scanned'],
+            $result['fixed_duplicates']
+        );
     }
 
     if ( isset( $_POST['wpmf_do_assign_unassigned'] ) &&
         check_admin_referer( 'wpmf_folder_manager_action', 'wpmf_folder_manager_nonce' ) ) {
         $moved   = wpmf_assign_unassigned_media();
-        $message = "✅ Spostati <strong>{$moved}</strong> media senza cartella in <em>Non assegnati</em>.";
+        $message = sprintf(
+            /* translators: %s: number of moved media */
+            __( '✅ Moved <strong>%s</strong> unassigned media to <em>Unassigned</em>.', WPMF_TD ),
+            $moved
+        );
     }
 
     if ( $message ) {
@@ -229,34 +357,34 @@ function wpmf_render_folder_manager_page(): void {
     $unassigned_count = wpmf_count_unassigned_media();
     ?>
     <div class="wrap">
-        <h1>🗂️ Gestione Cartelle WPMF</h1>
-        <p>Le cartelle con <code>!</code> e tutti i loro discendenti sono sempre protetti.</p>
+        <h1>🗂️ <?php esc_html_e( 'WPMF Folder Manager', WPMF_TD ); ?></h1>
+        <p><?php esc_html_e( 'Folders starting with ! and all their descendants are always protected.', WPMF_TD ); ?></p>
 
         <div style="display:flex; gap:20px; flex-wrap:wrap; margin:20px 0;">
             <div style="flex:1; min-width:180px; background:#d4edda; border:1px solid #c3e6cb; padding:15px; border-radius:6px;">
-                <h3 style="margin-top:0;">🔒 Protette</h3>
+                <h3 style="margin-top:0;">🔒 <?php esc_html_e( 'Protected', WPMF_TD ); ?></h3>
                 <p style="font-size:2em; margin:0; font-weight:bold;"><?php echo count( $protected_ids ); ?></p>
-                <p style="margin:4px 0 0;">cartelle al sicuro</p>
+                <p style="margin:4px 0 0;"><?php esc_html_e( 'safe folders', WPMF_TD ); ?></p>
             </div>
             <div style="flex:1; min-width:180px; background:#fff3cd; border:1px solid #ffc107; padding:15px; border-radius:6px;">
-                <h3 style="margin-top:0;">🕳️ Vuote</h3>
+                <h3 style="margin-top:0;">🕳️ <?php esc_html_e( 'Empty', WPMF_TD ); ?></h3>
                 <p style="font-size:2em; margin:0; font-weight:bold;"><?php echo count( $empty_ids ); ?></p>
-                <p style="margin:4px 0 0;">cartelle senza media</p>
+                <p style="margin:4px 0 0;"><?php esc_html_e( 'folders without media', WPMF_TD ); ?></p>
             </div>
             <div style="flex:1; min-width:180px; background:#f8d7da; border:1px solid #f5c6cb; padding:15px; border-radius:6px;">
-                <h3 style="margin-top:0;">🗑️ Non protette</h3>
+                <h3 style="margin-top:0;">🗑️ <?php esc_html_e( 'Unprotected', WPMF_TD ); ?></h3>
                 <p style="font-size:2em; margin:0; font-weight:bold;"><?php echo count( $deletable_ids ); ?></p>
-                <p style="margin:4px 0 0;">cartelle eliminabili</p>
+                <p style="margin:4px 0 0;"><?php esc_html_e( 'deletable folders', WPMF_TD ); ?></p>
             </div>
             <div style="flex:1; min-width:180px; background:#d1ecf1; border:1px solid #bee5eb; padding:15px; border-radius:6px;">
-                <h3 style="margin-top:0;">⚠️ Duplicati</h3>
+                <h3 style="margin-top:0;">⚠️ <?php esc_html_e( 'Duplicates', WPMF_TD ); ?></h3>
                 <p style="font-size:2em; margin:0; font-weight:bold;"><?php echo $duplicate_count; ?></p>
-                <p style="margin:4px 0 0;">allegati in più cartelle</p>
+                <p style="margin:4px 0 0;"><?php esc_html_e( 'attachments in multiple folders', WPMF_TD ); ?></p>
             </div>
             <div style="flex:1; min-width:180px; background:#e2d9f3; border:1px solid #c5b3e6; padding:15px; border-radius:6px;">
-                <h3 style="margin-top:0;">📭 Non assegnati</h3>
+                <h3 style="margin-top:0;">📭 <?php esc_html_e( 'Unassigned', WPMF_TD ); ?></h3>
                 <p style="font-size:2em; margin:0; font-weight:bold;"><?php echo $unassigned_count; ?></p>
-                <p style="margin:4px 0 0;">media senza cartella</p>
+                <p style="margin:4px 0 0;"><?php esc_html_e( 'media without folder', WPMF_TD ); ?></p>
             </div>
         </div>
 
@@ -265,32 +393,48 @@ function wpmf_render_folder_manager_page(): void {
                 <?php wp_nonce_field( 'wpmf_folder_manager_action', 'wpmf_folder_manager_nonce' ); ?>
                 <button type="submit" name="wpmf_do_assign_unassigned" value="1" class="button button-secondary"
                     <?php echo $unassigned_count === 0 ? 'disabled' : ''; ?>
-                    onclick="return confirm('Spostare <?php echo $unassigned_count; ?> media nella cartella &quot;Non assegnati&quot;?');">
-                    📭 Raccogli non assegnati (<?php echo $unassigned_count; ?>)
+                    onclick="return confirm('<?php echo esc_js( sprintf(
+                        /* translators: %d: number of media items */
+                        __( 'Move %d media to the "Unassigned" folder?', WPMF_TD ),
+                        $unassigned_count
+                    ) ); ?>');">
+                    📭 <?php printf( esc_html__( 'Collect unassigned (%d)', WPMF_TD ), $unassigned_count ); ?>
                 </button>
             </form>
             <form method="post">
                 <?php wp_nonce_field( 'wpmf_folder_manager_action', 'wpmf_folder_manager_nonce' ); ?>
                 <button type="submit" name="wpmf_do_fix_root" value="1" class="button button-secondary"
                     <?php echo $duplicate_count === 0 ? 'disabled' : ''; ?>
-                    onclick="return confirm('Correggere <?php echo $duplicate_count; ?> allegati con assegnazioni multiple?');">
-                    🔧 Correggi duplicati (<?php echo $duplicate_count; ?>)
+                    onclick="return confirm('<?php echo esc_js( sprintf(
+                        /* translators: %d: number of attachments */
+                        __( 'Fix %d attachments with multiple folder assignments?', WPMF_TD ),
+                        $duplicate_count
+                    ) ); ?>');">
+                    🔧 <?php printf( esc_html__( 'Fix duplicates (%d)', WPMF_TD ), $duplicate_count ); ?>
                 </button>
             </form>
             <form method="post">
                 <?php wp_nonce_field( 'wpmf_folder_manager_action', 'wpmf_folder_manager_nonce' ); ?>
                 <button type="submit" name="wpmf_do_delete_empty" value="1" class="button button-secondary"
                     <?php echo empty( $empty_ids ) ? 'disabled' : ''; ?>
-                    onclick="return confirm('Eliminare <?php echo count( $empty_ids ); ?> cartelle vuote?');">
-                    🕳️ Elimina cartelle vuote (<?php echo count( $empty_ids ); ?>)
+                    onclick="return confirm('<?php echo esc_js( sprintf(
+                        /* translators: %d: number of empty folders */
+                        __( 'Delete %d empty folders?', WPMF_TD ),
+                        count( $empty_ids )
+                    ) ); ?>');">
+                    🕳️ <?php printf( esc_html__( 'Delete empty folders (%d)', WPMF_TD ), count( $empty_ids ) ); ?>
                 </button>
             </form>
             <form method="post">
                 <?php wp_nonce_field( 'wpmf_folder_manager_action', 'wpmf_folder_manager_nonce' ); ?>
                 <button type="submit" name="wpmf_do_delete_all" value="1" class="button button-primary"
                     <?php echo empty( $deletable_ids ) ? 'disabled' : ''; ?>
-                    onclick="return confirm('Eliminare TUTTE le <?php echo count( $deletable_ids ); ?> cartelle non protette? Operazione non reversibile.');">
-                    🗑️ Elimina cartelle non protette (<?php echo count( $deletable_ids ); ?>)
+                    onclick="return confirm('<?php echo esc_js( sprintf(
+                        /* translators: %d: number of unprotected folders */
+                        __( 'Delete ALL %d unprotected folders? This cannot be undone.', WPMF_TD ),
+                        count( $deletable_ids )
+                    ) ); ?>');">
+                    🗑️ <?php printf( esc_html__( 'Delete unprotected folders (%d)', WPMF_TD ), count( $deletable_ids ) ); ?>
                 </button>
             </form>
         </div>
@@ -303,7 +447,7 @@ function wpmf_render_folder_manager_page(): void {
 // ─────────────────────────────────────────────
 foreach ( [ 'edit-post', 'upload' ] as $_wpmf_screen ) {
     add_filter( "bulk_actions-{$_wpmf_screen}", function ( $actions ) {
-        $actions['wpmf_clean_meta'] = 'Elimina Meta WPMF';
+        $actions['wpmf_clean_meta'] = __( 'Delete WPMF Meta', WPMF_TD );
         return $actions;
     } );
     add_filter( "handle_bulk_actions-{$_wpmf_screen}", 'wpmf_handle_clean_meta_bulk', 10, 3 );
@@ -327,7 +471,7 @@ add_action( 'init', function () {
     foreach ( array_keys( $settings['cpt_enabled'] ) as $post_type ) {
         $screen = 'edit-' . $post_type;
         add_filter( "bulk_actions-{$screen}", function ( $actions ) {
-            $actions['wpmf_detach_folder'] = 'Scollega cartella WPMF';
+            $actions['wpmf_detach_folder'] = __( 'Detach WPMF folder', WPMF_TD );
             return $actions;
         } );
         add_filter( "handle_bulk_actions-{$screen}", function ( $redirect_to, $doaction, $post_ids ) {
@@ -353,10 +497,22 @@ add_action( 'init', function () {
 
 add_action( 'admin_notices', function () {
     if ( ! empty( $_REQUEST['wpmf_meta_cleaned'] ) ) {
-        printf( '<div class="updated notice is-dismissible"><p>Pulizia completata: rimosso meta WPMF da %d elementi.</p></div>', intval( $_REQUEST['wpmf_meta_cleaned'] ) );
+        printf(
+            '<div class="updated notice is-dismissible"><p>' .
+            /* translators: %d: number of items */
+            esc_html__( 'Cleanup complete: removed WPMF meta from %d items.', WPMF_TD ) .
+            '</p></div>',
+            intval( $_REQUEST['wpmf_meta_cleaned'] )
+        );
     }
     if ( ! empty( $_REQUEST['wpmf_folder_detached'] ) ) {
-        printf( '<div class="updated notice is-dismissible"><p>✅ Cartella WPMF scollegata da %d elementi.</p></div>', intval( $_REQUEST['wpmf_folder_detached'] ) );
+        printf(
+            '<div class="updated notice is-dismissible"><p>✅ ' .
+            /* translators: %d: number of items */
+            esc_html__( 'WPMF folder detached from %d items.', WPMF_TD ) .
+            '</p></div>',
+            intval( $_REQUEST['wpmf_folder_detached'] )
+        );
     }
 } );
 
@@ -377,18 +533,18 @@ function wpmf_sanitize_folder_name( string $title, int $max_length = 0 ): string
 
 function wpmf_month_map(): array {
     return [
-        '01' => [ 'name' => '01 - Gennaio',   'color' => '#e74c3c' ],
-        '02' => [ 'name' => '02 - Febbraio',  'color' => '#e67e22' ],
-        '03' => [ 'name' => '03 - Marzo',     'color' => '#f1c40f' ],
-        '04' => [ 'name' => '04 - Aprile',    'color' => '#2ecc71' ],
-        '05' => [ 'name' => '05 - Maggio',    'color' => '#1abc9c' ],
-        '06' => [ 'name' => '06 - Giugno',    'color' => '#3498db' ],
-        '07' => [ 'name' => '07 - Luglio',    'color' => '#5dade2' ],
-        '08' => [ 'name' => '08 - Agosto',    'color' => '#9b59b6' ],
-        '09' => [ 'name' => '09 - Settembre', 'color' => '#e91e63' ],
-        '10' => [ 'name' => '10 - Ottobre',   'color' => '#ff5722' ],
-        '11' => [ 'name' => '11 - Novembre',  'color' => '#795548' ],
-        '12' => [ 'name' => '12 - Dicembre',  'color' => '#00bcd4' ],
+        '01' => [ 'name' => __( '01 - January',   WPMF_TD ), 'color' => '#e74c3c' ],
+        '02' => [ 'name' => __( '02 - February',  WPMF_TD ), 'color' => '#e67e22' ],
+        '03' => [ 'name' => __( '03 - March',     WPMF_TD ), 'color' => '#f1c40f' ],
+        '04' => [ 'name' => __( '04 - April',     WPMF_TD ), 'color' => '#2ecc71' ],
+        '05' => [ 'name' => __( '05 - May',       WPMF_TD ), 'color' => '#1abc9c' ],
+        '06' => [ 'name' => __( '06 - June',      WPMF_TD ), 'color' => '#3498db' ],
+        '07' => [ 'name' => __( '07 - July',      WPMF_TD ), 'color' => '#5dade2' ],
+        '08' => [ 'name' => __( '08 - August',    WPMF_TD ), 'color' => '#9b59b6' ],
+        '09' => [ 'name' => __( '09 - September', WPMF_TD ), 'color' => '#e91e63' ],
+        '10' => [ 'name' => __( '10 - October',   WPMF_TD ), 'color' => '#ff5722' ],
+        '11' => [ 'name' => __( '11 - November',  WPMF_TD ), 'color' => '#795548' ],
+        '12' => [ 'name' => __( '12 - December',  WPMF_TD ), 'color' => '#00bcd4' ],
     ];
 }
 
@@ -443,6 +599,8 @@ function wpmf_build_date_hierarchy( string $post_date, string $folder_name ): in
     if ( ! $year_id ) return 0;
     $month_id  = wpmf_get_or_create_folder( $month['name'], $year_id, $month['color'] );
     if ( ! $month_id ) return 0;
+    $s = wpmf_auto_get_settings();
+    if ( empty( $s['post_name_folder'] ) ) return $month_id;
     return wpmf_get_or_create_folder( $folder_name, $month_id );
 }
 
@@ -557,7 +715,7 @@ function wpmf_count_unassigned_media(): int {
 
 function wpmf_assign_unassigned_media(): int {
     global $wpdb;
-    $folder_id = wpmf_get_or_create_folder( 'Non assegnati', 0, '#95a5a6' );
+    $folder_id = wpmf_get_or_create_folder( __( 'Unassigned', WPMF_TD ), 0, '#95a5a6' );
     if ( ! $folder_id ) return 0;
     $batch_size = 500;
     $offset     = 0;
@@ -661,7 +819,7 @@ add_action( 'wp_trash_post', function ( int $post_id ) {
     if ( ! $post || $post->post_type !== 'post' ) return;
     $folder_id = (int) get_post_meta( $post_id, '_wpmf_automated_folder_id', true );
     if ( ! $folder_id ) return;
-    $trash_root = wpmf_get_or_create_folder( 'DeletedPosts', 0, '#95a5a6' );
+    $trash_root = wpmf_get_or_create_folder( __( 'DeletedPosts', WPMF_TD ), 0, '#95a5a6' );
     wp_update_term( $folder_id, 'wpmf-category', [ 'parent' => $trash_root ] );
     wpmf_custom_logger( "🗑️ Spostato in DeletedPosts (Post #{$post_id})" );
 } );
@@ -671,13 +829,18 @@ add_action( 'untrash_post', function ( int $post_id ) {
     if ( ! $post || $post->post_type !== 'post' ) return;
     $folder_id = (int) get_post_meta( $post_id, '_wpmf_automated_folder_id', true );
     if ( ! $folder_id ) return;
-    $folder_name = wpmf_sanitize_folder_name( get_the_title( $post_id ) );
-    $year        = date( 'Y', strtotime( $post->post_date ) );
-    $month_num   = date( 'm', strtotime( $post->post_date ) );
-    $month_map   = wpmf_month_map();
-    $month       = $month_map[ $month_num ];
-    $year_id     = wpmf_get_or_create_folder( $year, 0, '#5d6d7e' );
-    $month_id    = wpmf_get_or_create_folder( $month['name'], $year_id, $month['color'] );
-    wp_update_term( $folder_id, 'wpmf-category', [ 'parent' => $month_id, 'name' => $folder_name ] );
+    $year      = date( 'Y', strtotime( $post->post_date ) );
+    $month_num = date( 'm', strtotime( $post->post_date ) );
+    $month_map = wpmf_month_map();
+    $month     = $month_map[ $month_num ];
+    $year_id   = wpmf_get_or_create_folder( $year, 0, '#5d6d7e' );
+    $month_id  = wpmf_get_or_create_folder( $month['name'], $year_id, $month['color'] );
+    $s         = wpmf_auto_get_settings();
+    if ( ! empty( $s['post_name_folder'] ) ) {
+        $folder_name = wpmf_sanitize_folder_name( get_the_title( $post_id ) );
+        wp_update_term( $folder_id, 'wpmf-category', [ 'parent' => $month_id, 'name' => $folder_name ] );
+    } else {
+        wp_update_term( $folder_id, 'wpmf-category', [ 'parent' => $month_id ] );
+    }
     wpmf_custom_logger( "♻️ Ripristinato in {$year}/{$month['name']} (Post #{$post_id})" );
 } );

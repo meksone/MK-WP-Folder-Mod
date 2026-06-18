@@ -1,5 +1,25 @@
 # Changelog – MK WP Folder Mod
 
+## [0.4.7] – 2026-06-18
+### Added
+- Full WordPress plugin header (`Plugin Name`, `Plugin URI`, `Description`, `Author`, `License`)
+- GitHub updater: `pre_set_site_transient_update_plugins` checks `meksone/mk-wp-folder-mod` latest release; shows update notice in WP plugins screen
+- `plugins_api` filter: populates plugin info modal with release notes from GitHub
+- GitHub Actions workflow `.github/workflows/release.yml` — builds and attaches `mk-wp-folder-mod.zip` on every published release
+
+## [0.4.6] – 2026-06-18
+### Added
+- Full i18n support: `Text Domain: mk-wp-folder-mod`, `Domain Path: /languages`, textdomain loaded on `init`
+- All UI strings wrapped with `__()` / `_e()` / `esc_html__()` / `esc_html_e()` — admin menu titles, page headings, labels, descriptions, button text, confirm dialogs, bulk action labels, admin notices
+- Month names in `wpmf_month_map()` now translatable (English source strings)
+- Special folder names (`Unassigned`, `DeletedPosts`) now translatable
+
+## [0.4.5] – 2026-06-18
+### Added
+- Settings toggle "Cartella per nome post": when enabled, creates a named post subfolder inside Year/Month; when disabled (default), media go directly into the month folder
+- `post_name_folder` key added to `wpmf_auto_settings`; defaults to `false` for no behavior change on existing installs
+- `untrash_post` hook respects the setting — skips folder rename when post-name folders are disabled
+
 ## [0.4.4] – 2026-05-10
 ### Fixed
 - S3 offload / block-editor upload-first flows: folders were not created because `save_post` runs before attachments are linked to the parent post

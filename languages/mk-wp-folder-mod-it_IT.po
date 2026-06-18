@@ -1,0 +1,286 @@
+# Italian translation for mk-wp-folder-mod
+# Copyright (C) 2026 meksONE
+# This file is distributed under the same license as the mk-wp-folder-mod plugin.
+msgid ""
+msgstr ""
+"Project-Id-Version: mk-wp-folder-mod 0.4.6\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-06-18\n"
+"PO-Revision-Date: 2026-06-19 00:20+0200\n"
+"Last-Translator: meksONE\n"
+"Language-Team: Italian\n"
+"Language: it_IT\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Poedit 3.9\n"
+
+#: mk-wp-folder-mod.php
+msgid "WPMF Log"
+msgstr "WPMF Log"
+
+#: mk-wp-folder-mod.php
+msgid "WPMF Settings"
+msgstr "WPMF Impostazioni"
+
+#: mk-wp-folder-mod.php
+msgid "WPMF Folder Manager"
+msgstr "Gestione Cartelle WPMF"
+
+#: mk-wp-folder-mod.php
+msgid "WP Media Folder Automation Log"
+msgstr "Log Automazione WP Media Folder"
+
+#: mk-wp-folder-mod.php
+msgid "Date/Time"
+msgstr "Data/Ora"
+
+#: mk-wp-folder-mod.php
+msgid "Event"
+msgstr "Evento"
+
+#: mk-wp-folder-mod.php
+msgid "No events."
+msgstr "Nessun evento."
+
+#: mk-wp-folder-mod.php
+msgid "Settings saved."
+msgstr "Impostazioni salvate."
+
+#: mk-wp-folder-mod.php
+msgid "WPMF Automation Settings"
+msgstr "Impostazioni WPMF Automazione"
+
+#: mk-wp-folder-mod.php
+msgid "Post name folder"
+msgstr "Cartella per nome post"
+
+#: mk-wp-folder-mod.php
+msgid "Create a subfolder named after the post inside Year/Month"
+msgstr "Crea una sottocartella con il nome del post all'interno di Anno/Mese"
+
+#: mk-wp-folder-mod.php
+msgid "When disabled, media are placed directly in the month folder."
+msgstr ""
+"Se disabilitato, i media vengono inseriti direttamente nella cartella del "
+"mese."
+
+#: mk-wp-folder-mod.php
+msgid "Maximum folder name length"
+msgstr "Lunghezza massima nome cartella"
+
+#: mk-wp-folder-mod.php
+msgid "Maximum characters for folder names (5–100). Default: 30."
+msgstr ""
+"Numero massimo di caratteri per i nomi delle cartelle (5–100). Default: 30."
+
+#: mk-wp-folder-mod.php
+msgid "Enabled Custom Post Types"
+msgstr "Custom Post Type abilitati"
+
+#: mk-wp-folder-mod.php
+msgid "No public CPTs found."
+msgstr "Nessun CPT pubblico trovato."
+
+#: mk-wp-folder-mod.php
+msgid ""
+"Selected CPTs will have a root folder named after the post type. All "
+"associated media will be placed inside it."
+msgstr ""
+"I CPT selezionati avranno una cartella radice con il nome del tipo. Tutti i "
+"media associati verranno inseriti direttamente al suo interno."
+
+#: mk-wp-folder-mod.php
+msgid "Save settings"
+msgstr "Salva impostazioni"
+
+#. translators: %s: number of deleted folders
+#: mk-wp-folder-mod.php
+msgid ""
+"✅ Deleted <strong>%s</strong> empty folders (folders protected with ! were "
+"kept)."
+msgstr ""
+"✅ Eliminate <strong>%s</strong> cartelle vuote (protette con ! mantenute)."
+
+#. translators: %s: number of deleted folders
+#: mk-wp-folder-mod.php
+msgid ""
+"✅ Deleted <strong>%s</strong> unprotected folders (folders protected with ! "
+"were kept)."
+msgstr ""
+"✅ Eliminate <strong>%s</strong> cartelle non protette (protette con ! "
+"mantenute)."
+
+#. translators: 1: total scanned, 2: fixed duplicates
+#: mk-wp-folder-mod.php
+msgid ""
+"✅ Scanned <strong>%1$s</strong> attachments. Fixed <strong>%2$s</strong> "
+"with multiple assignments."
+msgstr ""
+"✅ Scansionati <strong>%1$s</strong> allegati. Corretti <strong>%2$s</"
+"strong> con assegnazioni multiple."
+
+#. translators: %s: number of moved media
+#: mk-wp-folder-mod.php
+msgid "✅ Moved <strong>%s</strong> unassigned media to <em>Unassigned</em>."
+msgstr ""
+"✅ Spostati <strong>%s</strong> media senza cartella in <em>Non assegnati</"
+"em>."
+
+#: mk-wp-folder-mod.php
+msgid "Folders starting with ! and all their descendants are always protected."
+msgstr ""
+"Le cartelle che iniziano con ! e tutti i loro discendenti sono sempre "
+"protetti."
+
+#: mk-wp-folder-mod.php
+msgid "Protected"
+msgstr "Protette"
+
+#: mk-wp-folder-mod.php
+msgid "safe folders"
+msgstr "cartelle al sicuro"
+
+#: mk-wp-folder-mod.php
+msgid "Empty"
+msgstr "Vuote"
+
+#: mk-wp-folder-mod.php
+msgid "folders without media"
+msgstr "cartelle senza media"
+
+#: mk-wp-folder-mod.php
+msgid "Unprotected"
+msgstr "Non protette"
+
+#: mk-wp-folder-mod.php
+msgid "deletable folders"
+msgstr "cartelle eliminabili"
+
+#: mk-wp-folder-mod.php
+msgid "Duplicates"
+msgstr "Duplicati"
+
+#: mk-wp-folder-mod.php
+msgid "attachments in multiple folders"
+msgstr "allegati in più cartelle"
+
+#: mk-wp-folder-mod.php
+msgid "Unassigned"
+msgstr "Non assegnati"
+
+#: mk-wp-folder-mod.php
+msgid "media without folder"
+msgstr "media senza cartella"
+
+#. translators: %d: number of media items
+#: mk-wp-folder-mod.php
+msgid "Move %d media to the \"Unassigned\" folder?"
+msgstr "Spostare %d media nella cartella \"Non assegnati\"?"
+
+#. translators: %d: number of media items
+#: mk-wp-folder-mod.php
+msgid "Collect unassigned (%d)"
+msgstr "Raccogli non assegnati (%d)"
+
+#. translators: %d: number of attachments
+#: mk-wp-folder-mod.php
+msgid "Fix %d attachments with multiple folder assignments?"
+msgstr "Correggere %d allegati con assegnazioni multiple?"
+
+#. translators: %d: number of attachments
+#: mk-wp-folder-mod.php
+msgid "Fix duplicates (%d)"
+msgstr "Correggi duplicati (%d)"
+
+#. translators: %d: number of empty folders
+#: mk-wp-folder-mod.php
+msgid "Delete %d empty folders?"
+msgstr "Eliminare %d cartelle vuote?"
+
+#. translators: %d: number of empty folders
+#: mk-wp-folder-mod.php
+msgid "Delete empty folders (%d)"
+msgstr "Elimina cartelle vuote (%d)"
+
+#. translators: %d: number of unprotected folders
+#: mk-wp-folder-mod.php
+msgid "Delete ALL %d unprotected folders? This cannot be undone."
+msgstr ""
+"Eliminare TUTTE le %d cartelle non protette? Operazione non reversibile."
+
+#. translators: %d: number of unprotected folders
+#: mk-wp-folder-mod.php
+msgid "Delete unprotected folders (%d)"
+msgstr "Elimina cartelle non protette (%d)"
+
+#: mk-wp-folder-mod.php
+msgid "Delete WPMF Meta"
+msgstr "Elimina Meta WPMF"
+
+#: mk-wp-folder-mod.php
+msgid "Detach WPMF folder"
+msgstr "Scollega cartella WPMF"
+
+#. translators: %d: number of items
+#: mk-wp-folder-mod.php
+msgid "Cleanup complete: removed WPMF meta from %d items."
+msgstr "Pulizia completata: rimosso meta WPMF da %d elementi."
+
+#. translators: %d: number of items
+#: mk-wp-folder-mod.php
+msgid "WPMF folder detached from %d items."
+msgstr "Cartella WPMF scollegata da %d elementi."
+
+#: mk-wp-folder-mod.php
+msgid "01 - January"
+msgstr "01 - Gennaio"
+
+#: mk-wp-folder-mod.php
+msgid "02 - February"
+msgstr "02 - Febbraio"
+
+#: mk-wp-folder-mod.php
+msgid "03 - March"
+msgstr "03 - Marzo"
+
+#: mk-wp-folder-mod.php
+msgid "04 - April"
+msgstr "04 - Aprile"
+
+#: mk-wp-folder-mod.php
+msgid "05 - May"
+msgstr "05 - Maggio"
+
+#: mk-wp-folder-mod.php
+msgid "06 - June"
+msgstr "06 - Giugno"
+
+#: mk-wp-folder-mod.php
+msgid "07 - July"
+msgstr "07 - Luglio"
+
+#: mk-wp-folder-mod.php
+msgid "08 - August"
+msgstr "08 - Agosto"
+
+#: mk-wp-folder-mod.php
+msgid "09 - September"
+msgstr "09 - Settembre"
+
+#: mk-wp-folder-mod.php
+msgid "10 - October"
+msgstr "10 - Ottobre"
+
+#: mk-wp-folder-mod.php
+msgid "11 - November"
+msgstr "11 - Novembre"
+
+#: mk-wp-folder-mod.php
+msgid "12 - December"
+msgstr "12 - Dicembre"
+
+#: mk-wp-folder-mod.php
+msgid "DeletedPosts"
+msgstr "PostEliminati"
