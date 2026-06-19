@@ -260,3 +260,26 @@ msgstr "12 - Diciembre"
 #: mk-wp-folder-mod.php
 msgid "DeletedPosts"
 msgstr "EntradasEliminadas"
+
+#: mk-wp-folder-mod.php
+msgid "Orphaned"
+msgstr "Huérfanos"
+
+#: mk-wp-folder-mod.php
+msgid "media without parent post"
+msgstr "archivos sin entrada vinculada"
+
+#. translators: %d: number of orphaned media
+#: mk-wp-folder-mod.php
+msgid "Try to assign %d orphaned media to posts or date folders?"
+msgstr "¿Intentar asignar %d archivos huérfanos a entradas o carpetas por fecha?"
+
+#. translators: %d: number of orphaned media
+#: mk-wp-folder-mod.php
+msgid "Tenta di assegnare ai post (%d)"
+msgstr "Intentar asignar a entradas (%d)"
+
+#. translators: 1: linked to post, 2: by date
+#: mk-wp-folder-mod.php
+msgid "✅ Processed orphaned media: <strong>%1$s</strong> linked to a post, <strong>%2$s</strong> assigned by upload date."
+msgstr "✅ Archivos huérfanos procesados: <strong>%1$s</strong> vinculados a una entrada, <strong>%2$s</strong> asignados por fecha de subida."

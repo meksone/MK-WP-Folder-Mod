@@ -261,3 +261,26 @@ msgstr "12 - December"
 #: mk-wp-folder-mod.php
 msgid "DeletedPosts"
 msgstr "DeletedPosts"
+
+#: mk-wp-folder-mod.php
+msgid "Orphaned"
+msgstr "Orphaned"
+
+#: mk-wp-folder-mod.php
+msgid "media without parent post"
+msgstr "media without parent post"
+
+#. translators: %d: number of orphaned media
+#: mk-wp-folder-mod.php
+msgid "Try to assign %d orphaned media to posts or date folders?"
+msgstr "Try to assign %d orphaned media to posts or date folders?"
+
+#. translators: %d: number of orphaned media
+#: mk-wp-folder-mod.php
+msgid "Tenta di assegnare ai post (%d)"
+msgstr "Try to assign to posts (%d)"
+
+#. translators: 1: linked to post, 2: by date
+#: mk-wp-folder-mod.php
+msgid "✅ Processed orphaned media: <strong>%1$s</strong> linked to a post, <strong>%2$s</strong> assigned by upload date."
+msgstr "✅ Processed orphaned media: <strong>%1$s</strong> linked to a post, <strong>%2$s</strong> assigned by upload date."

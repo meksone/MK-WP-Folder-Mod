@@ -1,5 +1,15 @@
 # Changelog – MK WP Folder Mod
 
+## [0.4.9] – 2026-06-18
+### Added
+- `wpmf_count_orphaned_media()`: counts attachments with no `wpmf-category` term and no `post_parent`
+- `wpmf_assign_orphaned_media()`: processes orphaned media in 200-item batches —
+  1. Loads all `_thumbnail_id` post-meta in one query to build a featured-image map
+  2. If attachment is used as featured image: sets `post_parent`, resolves/creates the post's folder, assigns the term
+  3. Otherwise: assigns to a date-based folder using the attachment's upload date
+- Folder Manager: "Orphaned" stat card + "Tenta di assegnare ai post" button
+- All new strings added to `it_IT`, `en_US`, `es_ES` `.po` files
+
 ## [0.4.8] – 2026-06-18
 ### Changed
 - `wpmf_delete_all_folders_except_protected`: replaced per-term `wp_delete_term()` loop with single bulk SQL delete (3 queries total regardless of folder count); cache flushed once at the end

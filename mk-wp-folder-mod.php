@@ -3,7 +3,7 @@
  * Plugin Name: MK WP Folder Mod
  * Plugin URI:  https://github.com/meksone/mk-wp-folder-mod
  * Description: WP Media Folder automation – post folder sync, logger & bulk cleaner.
- * Version:     0.4.8
+ * Version:     0.4.9
  * Author:      Manuel Serrenti (meksONE)
  * Author URI:  https://meksone.com
  * License:     GPL-2.0+
@@ -12,7 +12,7 @@
  */
 
 define( 'WPMF_TD',      'mk-wp-folder-mod' );
-define( 'WPMF_VERSION', '0.4.8' );
+define( 'WPMF_VERSION', '0.4.9' );
 define( 'WPMF_GITHUB',  'meksone/mk-wp-folder-mod' );
 define( 'WPMF_SLUG',    'mk-wp-folder-mod/mk-wp-folder-mod.php' );
 
@@ -310,6 +310,17 @@ function wpmf_render_folder_manager_page(): void {
         );
     }
 
+    if ( isset( $_POST['wpmf_do_assign_orphaned'] ) &&
+        check_admin_referer( 'wpmf_folder_manager_action', 'wpmf_folder_manager_nonce' ) ) {
+        $result  = wpmf_assign_orphaned_media();
+        $message = sprintf(
+            /* translators: 1: linked to post, 2: by date */
+            __( '✅ Processed orphaned media: <strong>%1$s</strong> linked to a post, <strong>%2$s</strong> assigned by upload date.', WPMF_TD ),
+            $result['linked'],
+            $result['by_date']
+        );
+    }
+
     if ( $message ) {
         echo '<div class="updated notice is-dismissible"><p>' . $message . '</p></div>';
     }
@@ -355,6 +366,7 @@ function wpmf_render_folder_manager_page(): void {
     );
 
     $unassigned_count = wpmf_count_unassigned_media();
+    $orphaned_count   = wpmf_count_orphaned_media();
     ?>
     <div class="wrap">
         <h1>🗂️ <?php esc_html_e( 'WPMF Folder Manager', WPMF_TD ); ?></h1>
@@ -386,6 +398,11 @@ function wpmf_render_folder_manager_page(): void {
                 <p style="font-size:2em; margin:0; font-weight:bold;"><?php echo $unassigned_count; ?></p>
                 <p style="margin:4px 0 0;"><?php esc_html_e( 'media without folder', WPMF_TD ); ?></p>
             </div>
+            <div style="flex:1; min-width:180px; background:#fde8d8; border:1px solid #f5a66d; padding:15px; border-radius:6px;">
+                <h3 style="margin-top:0;">🔗 <?php esc_html_e( 'Orphaned', WPMF_TD ); ?></h3>
+                <p style="font-size:2em; margin:0; font-weight:bold;"><?php echo $orphaned_count; ?></p>
+                <p style="margin:4px 0 0;"><?php esc_html_e( 'media without parent post', WPMF_TD ); ?></p>
+            </div>
         </div>
 
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
@@ -399,6 +416,18 @@ function wpmf_render_folder_manager_page(): void {
                         $unassigned_count
                     ) ); ?>');">
                     📭 <?php printf( esc_html__( 'Collect unassigned (%d)', WPMF_TD ), $unassigned_count ); ?>
+                </button>
+            </form>
+            <form method="post">
+                <?php wp_nonce_field( 'wpmf_folder_manager_action', 'wpmf_folder_manager_nonce' ); ?>
+                <button type="submit" name="wpmf_do_assign_orphaned" value="1" class="button button-secondary"
+                    <?php echo $orphaned_count === 0 ? 'disabled' : ''; ?>
+                    onclick="return confirm('<?php echo esc_js( sprintf(
+                        /* translators: %d: number of orphaned media */
+                        __( 'Try to assign %d orphaned media to posts or date folders?', WPMF_TD ),
+                        $orphaned_count
+                    ) ); ?>');">
+                    🔗 <?php printf( esc_html__( 'Tenta di assegnare ai post (%d)', WPMF_TD ), $orphaned_count ); ?>
                 </button>
             </form>
             <form method="post">
@@ -793,6 +822,109 @@ function wpmf_assign_unassigned_media(): int {
     } while ( count( $ids ) === $batch_size );
     if ( $moved > 0 ) wpmf_custom_logger( "📭 Assegnati {$moved} media senza cartella a \"Non assegnati\"." );
     return $moved;
+}
+
+function wpmf_count_orphaned_media(): int {
+    global $wpdb;
+    // Attachments with no wpmf-category term AND no post_parent.
+    return (int) $wpdb->get_var(
+        "SELECT COUNT(*) FROM {$wpdb->posts} p
+          WHERE p.post_type = 'attachment'
+            AND p.post_status != 'trash'
+            AND p.post_parent = 0
+            AND p.ID NOT IN (
+                SELECT tr.object_id
+                  FROM {$wpdb->term_relationships} tr
+                  JOIN {$wpdb->term_taxonomy} tt ON tt.term_taxonomy_id = tr.term_taxonomy_id
+                 WHERE tt.taxonomy = 'wpmf-category'
+            )"
+    );
+}
+
+function wpmf_assign_orphaned_media(): array {
+    global $wpdb;
+
+    $batch_size = 200;
+    $linked     = 0;
+    $by_date    = 0;
+
+    // Build a map: attachment_id => post_id for all featured images in one query.
+    $featured = $wpdb->get_results(
+        "SELECT meta_value AS att_id, post_id FROM {$wpdb->postmeta} WHERE meta_key = '_thumbnail_id'",
+        OBJECT_K  // keyed by att_id
+    );
+    // $featured[att_id]->post_id
+
+    $offset = 0;
+    do {
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT p.ID, p.post_date
+               FROM {$wpdb->posts} p
+              WHERE p.post_type = 'attachment'
+                AND p.post_status != 'trash'
+                AND p.post_parent = 0
+                AND p.ID NOT IN (
+                    SELECT tr.object_id
+                      FROM {$wpdb->term_relationships} tr
+                      JOIN {$wpdb->term_taxonomy} tt ON tt.term_taxonomy_id = tr.term_taxonomy_id
+                     WHERE tt.taxonomy = 'wpmf-category'
+                )
+              LIMIT %d OFFSET %d",
+            $batch_size, $offset
+        ) );
+
+        foreach ( $rows as $row ) {
+            $att_id = (int) $row->ID;
+
+            if ( isset( $featured[ $att_id ] ) ) {
+                // Used as featured image — link to that post and trigger folder logic.
+                $post_id = (int) $featured[ $att_id ]->post_id;
+                $parent  = get_post( $post_id );
+
+                if ( $parent && $parent->post_status !== 'trash' ) {
+                    // Set post_parent so save_post / attachment hooks work normally.
+                    wp_update_post( [ 'ID' => $att_id, 'post_parent' => $post_id ] );
+
+                    // Resolve or create folder for the parent post.
+                    $folder_id = (int) get_post_meta( $post_id, '_wpmf_automated_folder_id', true );
+                    if ( ! $folder_id ) {
+                        $post_type   = $parent->post_type;
+                        $folder_name = wpmf_sanitize_folder_name( get_the_title( $post_id ) );
+                        $is_post     = ( $post_type === 'post' );
+                        $is_cpt      = ( ! $is_post && $post_type !== 'page' && wpmf_auto_cpt_is_enabled( $post_type ) );
+                        if ( $is_post ) {
+                            $folder_id = wpmf_build_date_hierarchy( $parent->post_date, $folder_name );
+                        } elseif ( $is_cpt ) {
+                            $folder_id = wpmf_build_cpt_folder( $post_type );
+                        }
+                        if ( $folder_id ) {
+                            update_post_meta( $post_id, '_wpmf_automated_folder_id', $folder_id );
+                        }
+                    }
+
+                    if ( $folder_id ) {
+                        wp_set_object_terms( $att_id, $folder_id, 'wpmf-category', false );
+                        wpmf_custom_logger( "🖼️ Allegato #{$att_id} (immagine in evidenza) collegato al post #{$post_id} → cartella #{$folder_id}" );
+                        $linked++;
+                        continue;
+                    }
+                }
+            }
+
+            // No post match — assign to date-based folder using upload date.
+            $folder_id = wpmf_build_date_hierarchy( $row->post_date, '' );
+            if ( $folder_id ) {
+                wp_set_object_terms( $att_id, $folder_id, 'wpmf-category', false );
+                wpmf_custom_logger( "📅 Allegato #{$att_id} assegnato per data di caricamento → cartella #{$folder_id}" );
+                $by_date++;
+            }
+        }
+
+        $offset += $batch_size;
+    } while ( count( $rows ) === $batch_size );
+
+    wpmf_custom_logger( "🔗 Orphaned media: {$linked} collegati a post, {$by_date} assegnati per data." );
+    return [ 'linked' => $linked, 'by_date' => $by_date ];
 }
 
 // ─────────────────────────────────────────────
