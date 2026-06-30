@@ -3,7 +3,7 @@
  * Plugin Name: MK WP Folder Mod
  * Plugin URI:  https://github.com/meksone/mk-wp-folder-mod
  * Description: WP Media Folder automation – post folder sync, logger & bulk cleaner.
- * Version:     0.4.9
+ * Version:     0.4.10
  * Author:      Manuel Serrenti (meksONE)
  * Author URI:  https://meksone.com
  * License:     GPL-2.0+
@@ -12,11 +12,11 @@
  */
 
 define( 'WPMF_TD',      'mk-wp-folder-mod' );
-define( 'WPMF_VERSION', '0.4.9' );
+define( 'WPMF_VERSION', '0.4.10' );
 define( 'WPMF_GITHUB',  'meksone/mk-wp-folder-mod' );
 define( 'WPMF_SLUG',    'mk-wp-folder-mod/mk-wp-folder-mod.php' );
 
-add_action( 'init', function () {
+add_action( 'plugins_loaded', function () {
     load_plugin_textdomain( WPMF_TD, false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
 } );
 
